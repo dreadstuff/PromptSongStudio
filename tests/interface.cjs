@@ -51,6 +51,23 @@ const server=http.createServer((req,res)=>{
   await cards.nth(2).getByRole('button',{name:/^Play track/}).click();
   await cards.nth(2).getByRole('button',{name:/^Stop track/}).waitFor();
   await cards.nth(2).getByRole('button',{name:/^Stop track/}).click();
+  // Related generations retain the favorite alongside new takes.
+  await cards.nth(0).getByRole('button',{name:'More like track 1',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelectorAll('.take-card').length===4);
+  assert.ok((await cards.nth(0).innerText()).includes('Saved edit while comparing'));
+  await page.waitForFunction(()=>{
+    const data=JSON.parse(localStorage.getItem('pss:recent:v1')||'null');
+    return data?.batches.find(b=>b.id===data.activeId)?.takes.length===4;
+  });
+  await page.reload();
+  await page.waitForFunction(()=>document.querySelectorAll('.take-card').length===4);
+  await page.getByRole('button',{name:'Create 3 tracks',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelectorAll('.take-card').length===3);
+  await page.getByRole('button',{name:/^Recent \(/}).click();
+  await page.getByRole('dialog').getByRole('button').filter({hasText:'More like:'}).click();
+  await page.waitForFunction(()=>document.querySelectorAll('.take-card').length===4);
+  assert.ok((await cards.nth(0).innerText()).includes('Saved edit while comparing'));
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   assert.deepEqual(errors,[]);
   console.log('Browser checks passed: default simplicity, direct playback, switching, bottom-player sync, edit retention, Studio mode, desktop/mobile fit.');
  }finally{if(browser)await browser.close();server.close();}

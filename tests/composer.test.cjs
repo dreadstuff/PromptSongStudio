@@ -5,7 +5,7 @@ const os=require('node:os');
 const path=require('node:path');
 const {spawnSync}=require('node:child_process');
 const build=fs.mkdtempSync(path.join(os.tmpdir(),'prompt-song-tests-'));
-const compile=spawnSync(process.execPath,['node_modules/typescript/bin/tsc','lib/song.ts','lib/audio.ts','--outDir',build,'--module','commonjs','--target','ES2022','--lib','ES2022,DOM','--skipLibCheck'],{encoding:'utf8'});
+const compile=spawnSync(process.execPath,['node_modules/typescript/bin/tsc','lib/song.ts','lib/audio.ts','lib/recent.ts','--outDir',build,'--module','commonjs','--target','ES2022','--lib','ES2022,DOM','--skipLibCheck'],{encoding:'utf8'});
 assert.equal(compile.status,0,compile.stdout+compile.stderr);
 const {compose,validateSong,remix,GENRES,TRACKS,SCALES,stepTime,duration,noteMidi,chordName,encodeWav,patternForBar,noteBeats,noteDelay,editPatternStep}=require(path.join(build,'song.js'));
 const {interpretPrompt}=require(path.join(build,'interpret.js'));
@@ -189,4 +189,34 @@ test('batch generation returns 1–5 repeatable independent takes with shared re
   for(const genre of GENRES){const batch=composeBatch('Fast music at 130 BPM in F major',5,{genre,energy:.7,seed:21});assert.equal(batch.length,5);assert.equal(new Set(batch.map(s=>s.id)).size,5);assert.ok(new Set(batch.map(s=>JSON.stringify(s.patterns))).size>1);for(const s of batch){assert.equal(s.bpm,130);assert.equal(s.root,5);assert.equal(s.scale,'major');assert.equal(s.energy,.7);assert.equal(s.genre,genre);}assert.deepEqual(batch,composeBatch('Fast music at 130 BPM in F major',5,{genre,energy:.7,seed:21}));}
   assert.equal(composeBatch('Boss fight',1).length,1);
   for(const n of [0,6,-1,1.5,NaN])assert.throws(()=>composeBatch('Boss fight',n));
+});
+
+test('arrangement directions change onsets and balance while honoring constraints',()=>{
+ const {composeBatch}=require(path.join(build,'song.js'));
+ const batch=composeBatch('Boss fight at 150 BPM in D minor',3,{seed:99});
+ assert.deepEqual(batch.map(s=>s.direction),['Melody-led','Rhythm-led','Atmospheric']);
+ assert.equal(new Set(batch.map(s=>JSON.stringify(s.patterns))).size,3);
+ const leadCount=s=>[s.patterns,...s.variations].flatMap(p=>p.lead).filter(v=>v>=0).length;
+ assert.ok(leadCount(batch[0])>leadCount(batch[1]));
+ for(const s of composeBatch('House no drums, no melody, no bass at 120 BPM',5,{seed:17})){
+  assert.equal(s.bpm,120);for(const p of [s.patterns,...s.variations]){for(const t of ['kick','snare','hat'])assert.ok(p[t].every(v=>v===0));for(const t of ['lead','bass'])assert.ok(p[t].every(v=>v===-1));}
+ }
+});
+test('more like this keeps original immutable and preserves favorite musical identity',()=>{
+ const {moreLike,composeBatch}=require(path.join(build,'song.js'));
+ const original=composeBatch('Fast boss fight in D minor',3,{seed:7})[0],snapshot=structuredClone(original);
+ original.title='My favorite';snapshot.title=original.title;
+ const batch=moreLike(original,3,32);
+ assert.deepEqual(original,snapshot);assert.equal(new Set(batch.map(s=>s.id)).size,3);
+ for(const s of batch){for(const field of ['bpm','root','scale','genre','energy','bars','direction'])assert.equal(s[field],original[field]);for(const field of ['patterns','chords','sound','mix','muted'])assert.deepEqual(s[field],original[field]);}
+ assert.ok(batch.some(s=>JSON.stringify(s.variations)!==JSON.stringify(original.variations)));
+ assert.deepEqual(batch,moreLike(original,3,32));
+});
+test('recent generations round trip, cap storage and recover valid tracks from corrupt entries',()=>{
+ const {readRecent,upsertRecent}=require(path.join(build,'recent.js'));
+ let batches=[];for(let i=0;i<15;i++)batches=upsertRecent(batches,{id:String(i),createdAt:i,label:'Prompt '+i,takes:[compose('House',{seed:i})]});
+ assert.equal(batches.length,12);assert.equal(batches[0].id,'14');
+ const raw=JSON.stringify({version:1,activeId:'14',batches});assert.deepEqual(readRecent(raw),{batches,activeId:'14'});
+ assert.deepEqual(readRecent('{broken'),{batches:[],activeId:''});
+ const recovered=readRecent(JSON.stringify({version:1,activeId:'a',batches:[null,{id:'a',createdAt:1,label:'Example',takes:[null,compose('House')]}]}));assert.equal(recovered.batches[0].takes.length,1);
 });

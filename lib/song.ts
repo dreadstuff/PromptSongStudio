@@ -8,7 +8,9 @@ export const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 export const SCALES = { minor:[0,2,3,5,7,8,10], major:[0,2,4,5,7,9,11], dorian:[0,2,3,5,7,9,10] };
 export const GENRES = ['Synthwave','House','Lo-fi','Ambient','Drum & bass','Chiptune','Trance','Hip-hop'] as const;
 export type Genre = typeof GENRES[number];
-export type Song = { version:1; id:string; title:string; prompt:string; seed:number; genre:Genre; bpm:number; root:number; scale:keyof typeof SCALES; bars:number; swing:number; energy:number; chords:number[]; patterns:Record<Track,number[]>; mix:Record<Track,number>; muted:Record<Track,boolean>; sound:{bass:'round'|'acid'|'sub';lead:'pluck'|'bell'|'square'|'keys'|'sine'|'supersaw';pad:'warm'|'glass'|'keys';kit?:'tight'|'soft'|'retro'|'breakbeat'|'808';reverb:number;delay:number};composerVersion?:2;variations?:Record<Track,number[]>[];performance?:{bassGate:number;leadGate:number;padGate:number;leadOctave:number;humanize:number};interpretation?:{version:1;scene:Interpretation['scene'];mood:string;genreSource?:Interpretation['genreSource']} };
+export const DIRECTIONS=['Melody-led','Rhythm-led','Atmospheric','Balanced','Pulse'] as const;
+export type Direction=typeof DIRECTIONS[number];
+export type Song = { direction?:Direction; version:1; id:string; title:string; prompt:string; seed:number; genre:Genre; bpm:number; root:number; scale:keyof typeof SCALES; bars:number; swing:number; energy:number; chords:number[]; patterns:Record<Track,number[]>; mix:Record<Track,number>; muted:Record<Track,boolean>; sound:{bass:'round'|'acid'|'sub';lead:'pluck'|'bell'|'square'|'keys'|'sine'|'supersaw';pad:'warm'|'glass'|'keys';kit?:'tight'|'soft'|'retro'|'breakbeat'|'808';reverb:number;delay:number};composerVersion?:2;variations?:Record<Track,number[]>[];performance?:{bassGate:number;leadGate:number;padGate:number;leadOctave:number;humanize:number};interpretation?:{version:1;scene:Interpretation['scene'];mood:string;genreSource?:Interpretation['genreSource']} };
 export const EXAMPLES = [
   {title:'Into the boss room',genre:'Story prompt',prompt:'Dungeon Crawler Carl enters into a boss fight with upbeat and fast music.',color:'#c6a0ff'},
   {title:'Main character energy',genre:'House',prompt:'Uplifting house at 128 BPM in F major. Four-on-the-floor drums, an acid bass, bright plucks, and big weekend energy.',color:'#dafa7b'},
@@ -48,7 +50,7 @@ export function validateSong(raw:unknown):Song {
   const extended:Partial<Song>=s.composerVersion===2?{composerVersion:2,variations:s.variations!.map(validatePattern),performance:{bassGate:bounded(s.performance?.bassGate,.1,1.4,.7),leadGate:bounded(s.performance?.leadGate,.1,1.5,.7),padGate:bounded(s.performance?.padGate,.1,1,.9),leadOctave:Math.round(bounded(s.performance?.leadOctave,3,5,4)),humanize:bounded(s.performance?.humanize,0,.02,0)}}:{};
   const mix={} as Song['mix'], muted={} as Song['muted'];
   for(const t of TRACKS){mix[t]=bounded(s.mix?.[t],0,1,.65);muted[t]=s.muted?.[t]===true;}
-  return {...extended,...(s.interpretation?.version===1?{interpretation:{version:1 as const,scene:['battle','chase','suspense','exploration','victory','rest','romance','sadness','neutral'].includes(s.interpretation.scene)?s.interpretation.scene:'neutral' as const,mood:typeof s.interpretation.mood==='string'?s.interpretation.mood.slice(0,40):'Balanced',...(s.interpretation.genreSource&&['manual','prompt','scene','fallback'].includes(s.interpretation.genreSource)?{genreSource:s.interpretation.genreSource}:{})}}:{}),version:1,id:typeof s.id==='string'?s.id.slice(0,80):`import-${hash(JSON.stringify(patterns))}`,title:typeof s.title==='string'?s.title.slice(0,80):'Untitled loop',prompt:typeof s.prompt==='string'?s.prompt.slice(0,2000):'',seed:bounded(s.seed,0,4294967295,1)>>>0,genre:GENRES.includes(s.genre)?s.genre:'Synthwave',bpm:Math.round(bounded(s.bpm,55,180,108)),root:Math.round(bounded(s.root,0,11,9)),scale:Object.hasOwn(SCALES,s.scale)?s.scale:'minor',bars:[4,8,16].includes(s.bars)?s.bars:8,swing:bounded(s.swing,0,.3,0),energy:bounded(s.energy,0,1,.65),chords:s.chords.map(v=>Math.round(bounded(v,0,6,0))),patterns,mix,muted,sound:{bass:['round','acid','sub'].includes(s.sound?.bass)?s.sound.bass:'round',lead:['pluck','bell','square','keys','sine','supersaw'].includes(s.sound?.lead)?s.sound.lead:'pluck',pad:['glass','keys'].includes(s.sound?.pad)?s.sound.pad:'warm',...(s.sound?.kit?{kit:['tight','soft','retro','breakbeat','808'].includes(s.sound.kit)?s.sound.kit:'tight' as const}:{}),reverb:bounded(s.sound?.reverb,0,.6,.2),delay:bounded(s.sound?.delay,0,.5,.2)}};
+  return {...extended,...(DIRECTIONS.includes(s.direction as Direction)?{direction:s.direction}:{}),...(s.interpretation?.version===1?{interpretation:{version:1 as const,scene:['battle','chase','suspense','exploration','victory','rest','romance','sadness','neutral'].includes(s.interpretation.scene)?s.interpretation.scene:'neutral' as const,mood:typeof s.interpretation.mood==='string'?s.interpretation.mood.slice(0,40):'Balanced',...(s.interpretation.genreSource&&['manual','prompt','scene','fallback'].includes(s.interpretation.genreSource)?{genreSource:s.interpretation.genreSource}:{})}}:{}),version:1,id:typeof s.id==='string'?s.id.slice(0,80):`import-${hash(JSON.stringify(patterns))}`,title:typeof s.title==='string'?s.title.slice(0,80):'Untitled loop',prompt:typeof s.prompt==='string'?s.prompt.slice(0,2000):'',seed:bounded(s.seed,0,4294967295,1)>>>0,genre:GENRES.includes(s.genre)?s.genre:'Synthwave',bpm:Math.round(bounded(s.bpm,55,180,108)),root:Math.round(bounded(s.root,0,11,9)),scale:Object.hasOwn(SCALES,s.scale)?s.scale:'minor',bars:[4,8,16].includes(s.bars)?s.bars:8,swing:bounded(s.swing,0,.3,0),energy:bounded(s.energy,0,1,.65),chords:s.chords.map(v=>Math.round(bounded(v,0,6,0))),patterns,mix,muted,sound:{bass:['round','acid','sub'].includes(s.sound?.bass)?s.sound.bass:'round',lead:['pluck','bell','square','keys','sine','supersaw'].includes(s.sound?.lead)?s.sound.lead:'pluck',pad:['glass','keys'].includes(s.sound?.pad)?s.sound.pad:'warm',...(s.sound?.kit?{kit:['tight','soft','retro','breakbeat','808'].includes(s.sound.kit)?s.sound.kit:'tight' as const}:{}),reverb:bounded(s.sound?.reverb,0,.6,.2),delay:bounded(s.sound?.delay,0,.5,.2)}};
 }
 export function compose(prompt:string,options:{genre?:string;energy?:number;seed?:number}={}):Song {
   const p=prompt.trim().slice(0,2000); if(!p)throw new Error('Describe a sound to get started.');
@@ -72,7 +74,54 @@ export function compose(prompt:string,options:{genre?:string;energy?:number;seed
 export function composeBatch(prompt:string,count:number,options:{genre?:string;energy?:number;seed?:number}={}):Song[]{
   if(!Number.isInteger(count)||count<1||count>5)throw new Error('Choose between 1 and 5 tracks.');
   const base=options.seed??hash(prompt);
-  return Array.from({length:count},(_,i)=>compose(prompt,{...options,seed:(base+Math.imul(i,0x9e3779b9))>>>0}));
+  return Array.from({length:count},(_,i)=>arrange(compose(prompt,{...options,seed:(base+Math.imul(i,0x9e3779b9))>>>0}),count===1?'Balanced':DIRECTIONS[i]));
+}
+/** Arrangement changes rhythm, note space and balance without overriding prompt exclusions. */
+export function arrange(source:Song,direction:Direction):Song {
+  const s=structuredClone(source);s.direction=direction;
+  const phrases=[s.patterns,...(s.variations||[])];
+  for(const p of phrases){
+    if(direction==='Melody-led'){
+      p.hat=p.hat.map((v,i)=>i%4===0?v:0);p.bass=p.bass.map((v,i)=>i%4===0?v:-1);
+    }else if(direction==='Rhythm-led'){
+      p.lead=p.lead.map((v,i)=>i%8===0?v:-1);
+      p.pad=p.pad.map((v,i)=>i===0?v:0);
+    }else if(direction==='Atmospheric'){
+      for(const t of ['kick','snare','hat'] as const)p[t]=p[t].map((v,i)=>i===0?v*.35:0);
+      p.lead=p.lead.map((v,i)=>i%8===0?v:-1);p.bass=p.bass.map((v,i)=>i===0?v:-1);
+      p.pad=p.pad.map((v,i)=>i===0?Math.max(v,.65):0);
+    }else if(direction==='Pulse'){
+      p.lead=p.lead.map((v,i)=>i%2===0?v:-1);
+      // Rearticulate only existing bass notes; never introduce an excluded voice.
+      const note=p.bass.find(v=>v>=0);if(note!==undefined)p.bass=p.bass.map((_,i)=>i%4===2?note:-1);
+      p.pad=p.pad.map((v,i)=>i%8===0?v:0);
+    }
+  }
+  if(direction==='Melody-led'){s.mix.lead=Math.min(1,s.mix.lead*1.3);s.mix.pad*=.7;s.mix.hat*=.6;}
+  if(direction==='Rhythm-led'){s.mix.lead*=.65;s.mix.pad*=.6;s.mix.kick=Math.min(1,s.mix.kick*1.15);s.mix.bass=Math.min(1,s.mix.bass*1.15);if(s.performance)s.performance.padGate=.25;}
+  if(direction==='Atmospheric'){s.mix.pad=Math.min(1,s.mix.pad*1.4);if(s.performance){s.performance.leadGate=1.35;s.performance.padGate=.99;}}
+  if(direction==='Pulse'&&s.performance){s.performance.bassGate=.4;s.performance.leadGate=.45;}
+  return validateSong(applyExclusions(s));
+}
+/** Keep the favorite's harmony, sounds, mix and opening motif; vary the answering phrases. */
+export function moreLike(source:Song,count:number,seed:number):Song[]{
+  if(!Number.isInteger(count)||count<1||count>5)throw new Error('Choose between 1 and 5 tracks.');
+  return Array.from({length:count},(_,i)=>{
+    const nextSeed=(seed+Math.imul(i,0x9e3779b9))>>>0;
+    const fresh=compose(source.prompt||source.genre,{genre:source.genre,energy:source.energy,seed:nextSeed});
+    const variations=fresh.variations!.map((p,bar)=>{
+      const original=patternForBar(source,bar+1),next=structuredClone(original);
+      for(const t of ['kick','snare','hat','bass'] as const)next[t]=p[t];
+      // Keep the melodic idea recognizable, but vary its ending and leave new rests.
+      next.lead=original.lead.map((v,step)=>v<0?v:step>7&&((step+i+bar)%3===0)?-1:step>7?Math.min(13,Math.max(0,v+(i%2?2:-2))):v);
+      return next;
+    });
+    const next=validateSong({...source,id:`song-${nextSeed}`,seed:nextSeed,composerVersion:2,patterns:structuredClone(source.patterns),variations,performance:source.performance||fresh.performance,title:source.title.replace(/ · variation \d+$/,'').slice(0,60)+` · variation ${i+1}`});
+    const result=source.direction?arrange(next,source.direction):next;
+    // Preserve the exact favorite opening, including hand edits.
+    result.patterns=structuredClone(source.patterns);result.mix={...source.mix};result.sound={...source.sound};
+    return validateSong(applyExclusions(result));
+  });
 }
 export function noteMidi(s:Song,degree:number,octave:number){const scale=SCALES[s.scale];return octave*12+s.root+scale[((degree%7)+7)%7]+Math.floor(degree/7)*12;}
 export function chordName(s:Song,index:number){const d=s.chords[index%4],scale=SCALES[s.scale];const root=NOTES[(s.root+scale[d])%12];const third=noteMidi(s,d+2,4)-noteMidi(s,d,4),fifth=noteMidi(s,d+4,4)-noteMidi(s,d,4);return root+(fifth===6?'dim':third===3?'m':'');}

@@ -99,3 +99,7 @@ The energy slider follows the description until moved; **Use description** clear
 The main page follows **Describe → Generate → Listen**. Each result has direct Play/Stop, Save, and Customize actions, synchronized with the bottom player. Music settings expand above generation; sequencer, sound/mix, effects, tempo, and key editing expand under Customize this track. Studio mode keeps both sections open. Playback switching keeps edits to each take for the current batch. Save favorites before generating again or reloading.
 
 GitHub is the primary repository and GitHub Pages is the public demo. Pushes to `main` publish automatically after checks pass.
+
+## Demo 08: explore and refine
+
+Generate distinct arrangement directions, use **More like this** to keep an original beside related variations, and reopen the last 12 batches through **Recent**. History stays on this browser and rolls off after 12 batches; saved favorites and JSON backups remain available. See [the musical variety plan](docs/music-variety.md) for the engine's limits and expansion options. The pre-update build is preserved on `backup/simple-studio-demo07`.

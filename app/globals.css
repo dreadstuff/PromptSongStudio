@@ -148,3 +148,4 @@
  .simple-studio .brand-sub{display:none}
  .simple-studio .top-actions{gap:5px}
 }
+.direction-badge{color:#d3e8ae;font-weight:600}.simple-studio .take-card{flex-wrap:wrap}.simple-studio .take-details{min-width:200px}.simple-studio .take-actions{flex-wrap:wrap;margin-left:auto}.simple-studio .take-actions .button{font-size:12px;padding:9px 10px}.results-heading{flex-wrap:wrap}.saved-song strong{overflow-wrap:anywhere}@media(max-width:760px){.simple-studio .take-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.simple-studio .take-details{min-width:0}.results-heading>button{align-self:flex-start}}
