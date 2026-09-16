@@ -2,6 +2,16 @@
 
 An instrumental music studio built for the Music Gen project. Describe a sound, generate a repeatable patch sheet, synthesize it in the browser, edit it, and export stereo audio.
 
+## Public demo on GitHub Pages
+
+[Open Prompt Song Studio](https://dreadstuff.github.io/PromptSongStudio/) — no ChatGPT or GitHub sign-in needed once Pages is enabled.
+
+One-time repository setup: **Settings → Pages → Build and deployment → Source → GitHub Actions**. The **Publish public demo** workflow builds and publishes on every push to `main`; it can also be run manually from Actions after enabling Pages.
+
+`pnpm build:pages` creates `dist-pages/`, a standalone static build of the same studio. Relative asset paths support the repository URL. The static entry point imports only the client app; it has no ChatGPT authentication or server dependency. Local saves remain browser-specific; use JSON export/import to transfer songs from the original demo.
+
+Latest features include 20 themed prompts, relevant titles, and 1–5 selectable takes per generation.
+
 ## Demo scope
 
 The demo uses a **local, rule-based composer**, not an LLM or cloud audio generation service. Its English scene interpreter maps actions, mood, and pace onto eight music styles, BPM, musical keys, energy, and a small instrument vocabulary. It does not create vocals or faithfully interpret arbitrary narrative prompts. Everything is synthesized; no prerecorded audio or samples are loaded.
