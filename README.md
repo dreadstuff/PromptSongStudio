@@ -93,3 +93,9 @@ The **Interpreted as · next track** panel shows the exact plan used by generati
 The energy slider follows the description until moved; **Use description** clears that override. A selected style overrides the inferred style. Explicit BPM and key in the prompt override descriptive guesses. Sample prompts and the older-song recreate action reset inference overrides. Existing saved patches remain unchanged. Remix retains an inferred scene while preserving the current harmony, tempo, sounds, and mix.
 
 33 automated checks cover the exact example, other scene families, common negations, misleading story nouns (a haunted house is not house music), real score changes, control precedence, exclusions, and prior audio/saving behavior. The tests inspect composition data and audio scheduling contracts; subjective listening and native browser rendering are not covered.
+
+## Simple interface
+
+The main page follows **Describe → Generate → Listen**. Each result has direct Play/Stop, Save, and Customize actions, synchronized with the bottom player. Music settings expand above generation; sequencer, sound/mix, effects, tempo, and key editing expand under Customize this track. Studio mode keeps both sections open. Playback switching keeps edits to each take for the current batch. Save favorites before generating again or reloading.
+
+GitHub is the primary repository and GitHub Pages is the public demo. Pushes to `main` publish automatically after checks pass.
