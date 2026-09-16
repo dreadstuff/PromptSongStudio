@@ -52,3 +52,15 @@ No cloud model, API subscription, model backend, or sampled-instrument service h
 Score data uses an optional `arrangement` extension under the existing v1 song format. Import rejects malformed section lengths or invalid score bars rather than playing partial data. JSON imports up to 500 KB accommodate complete scores. Recent history remains capped at 12 batches; browser storage failures prompt export of favorites.
 
 The exact Demo 08 build is preserved at `backup/explore-refine-demo08`, commit `b5e4de4e12c2f460650c03899caffa759661c12f`. No saved songs are automatically rewritten.
+
+## Demo 10: develop an accepted take
+
+Each take now offers **Expand into full song**. Duration choices are two minutes, three minutes, and a custom integer from 120 to 300 seconds. Durations round up to a complete two-bar phrase based on the accepted tempo; the preview reports the actual duration before creation. New full songs play once by default. Tempo edits subsequently change their duration.
+
+The full-song plan uses version 2 with eight ordered sections: Intro, Theme, Variation, Build, Peak, Breakdown, Return, Release. Plans are bounded to 226 total bars and 64 bars per section. Version 1 five-section plans and legacy loops retain their existing validation and playback. Song/arrangement envelopes stay version 1; their nested plan is versioned. Invalid or mismatched lengths are rejected. The longest exported JSON remains within the existing 500 KB import limit.
+
+Expansion clones and validates the accepted take. Its tempo, key, synth voices, mix, mutes, seed, base phrases, and progression remain intact. For existing scores, matching sections reuse their arranged patterns, including theme edits; Variation and Breakdown develop that theme and Return quotes it. The ending resolves to the tonic. Longer sections still reuse phrases, so listening feedback remains important; this is a procedural arrangement, not a cloud-generated performance.
+
+A new batch contains the original and the separately identified full song, keeping both within the six-track recent-batch cap. Previous comparisons remain in Recent. Save and JSON export are available for durable favorites; storage remains browser-local with the existing quota warning. All bars share the live playback/offline WAV path.
+
+The pre-expansion-button build is preserved at `backup/evolving-scores-demo09`, commit `fdfd2a184b44d89ff2bc9f62036280da49820b83`.

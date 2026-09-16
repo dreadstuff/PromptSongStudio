@@ -267,3 +267,65 @@ test('score WAV exports have the complete arranged duration',async()=>{
  const s=composeBatch('House 120 BPM',1,{form:'score',length:16})[0];
  const wav=await renderWav(s,.65,false);assert.equal(wav.size,44+32*44100*4);
 });
+
+test('full songs meet requested duration at every supported tempo without mutating the accepted take',()=>{
+ const {expandSong}=require(path.join(build,'score.js'));
+ for(const genre of GENRES)for(const bpm of [55,120,180])for(const seconds of [120,157,180,300]){
+  const source=compose(`${genre} ${bpm} BPM`,{genre,seed:81}),snapshot=structuredClone(source),full=expandSong(source,seconds,'expanded');
+  assert.deepEqual(source,snapshot);assert.notEqual(full.id,source.id);assert.equal(full.arrangement.plan.version,2);
+  assert.ok(duration(full)>=seconds);assert.ok(duration(full)<seconds+480/bpm);assert.ok(full.bars<=226);
+  for(const key of ['seed','bpm','root','scale','genre','sound','mix','muted','patterns','variations','chords','performance'])assert.deepEqual(full[key],source[key]);
+  assert.deepEqual(validateSong(JSON.parse(JSON.stringify(full))),full);
+  assert.deepEqual(expandSong(source,seconds,'expanded'),full);
+ }
+});
+test('expansion quotes edited themes, develops an answer, breaks down, and returns to the theme',()=>{
+ const {expandSong}=require(path.join(build,'score.js')),{composeBatch}=require(path.join(build,'song.js'));
+ let source=composeBatch('Chiptune boss fight 120 BPM',1,{form:'score',length:32,seed:61})[0];
+ const themeIndex=source.arrangement.bars.findIndex(b=>b.role==='Theme');source=editPatternStep(source,themeIndex,'lead',3,11);
+ const full=expandSong(source,180,'full'),byRole=role=>full.arrangement.bars.filter(b=>b.role===role);
+ assert.deepEqual(byRole('Theme')[0].patterns,source.arrangement.bars[themeIndex].patterns);
+ assert.deepEqual(byRole('Return')[0].patterns,byRole('Theme')[0].patterns);
+ assert.notDeepEqual(byRole('Variation')[0].patterns.lead,byRole('Theme')[0].patterns.lead);
+ assert.ok(byRole('Breakdown').every(b=>['kick','snare','hat'].every(t=>b.patterns[t].every(v=>v===0))));
+ assert.ok(byRole('Return')[0].expression>byRole('Breakdown')[0].expression);
+ assert.equal(full.arrangement.bars.at(-1).chord,0);
+ const edited=editPatternStep(full,full.bars-1,'lead',5,9);assert.equal(patternForBar(edited,full.bars-1).lead[5],9);assert.notEqual(patternForBar(full,full.bars-1).lead[5],9);
+});
+test('full-song expansion preserves exclusions and muted voices, including old saved loops',()=>{
+ const {expandSong}=require(path.join(build,'score.js'));
+ const source=compose('House no drums, no bass, no melody',{seed:2});source.muted.pad=true;
+ delete source.composerVersion;delete source.variations;delete source.performance;
+ const full=expandSong(source,120,'full');assert.equal(full.muted.pad,true);
+ for(const bar of full.arrangement.bars){for(const t of ['kick','snare','hat'])assert.ok(bar.patterns[t].every(v=>v===0));for(const t of ['bass','lead'])assert.ok(bar.patterns[t].every(v=>v===-1));}
+});
+test('full-song data survives recent storage and portable JSON while rejecting invalid lengths',()=>{
+ const {expandSong}=require(path.join(build,'score.js')),{fullSongPlan,validatePlan}=require(path.join(build,'plan.js')),{readRecent}=require(path.join(build,'recent.js'));
+ const source=compose('Trance 180 BPM',{seed:67}),full=expandSong(source,300,'full');
+ const json=JSON.stringify(full,null,2);assert.ok(Buffer.byteLength(json)<500000,'Longest supported song must fit the import limit');
+ const batch={id:'pair',createdAt:123,label:'Expanded',takes:[source,full]};
+ assert.deepEqual(readRecent(JSON.stringify({version:1,activeId:'pair',batches:[batch]})).batches[0].takes,[source,full]);
+ for(const seconds of [0,119,301,120.5,NaN,Infinity])assert.throws(()=>expandSong(source,seconds,'full'));
+ assert.throws(()=>expandSong(source,120,source.id));
+ const plan=fullSongPlan(120,120);plan.sections[0].bars=10000;assert.throws(()=>validatePlan(plan));
+ assert.throws(()=>validateSong({...full,bars:8}));const bad=structuredClone(full);bad.arrangement.bars.pop();assert.throws(()=>validateSong(bad));
+});
+test('full-song remix and related takes keep the long form and produce new phrases',()=>{
+ const {expandSong}=require(path.join(build,'score.js')),{moreLike}=require(path.join(build,'song.js'));
+ const full=expandSong(compose('House',{seed:7}),120,'full');
+ for(const next of [remix(full,91),...moreLike(full,2,991)]){assert.equal(next.bars,full.bars);assert.deepEqual(next.arrangement.plan,full.arrangement.plan);assert.notDeepEqual(next.arrangement.bars,full.arrangement.bars);}
+});
+test('long playback schedules later sections and stops after the ending without looping',async()=>{
+ const {expandSong}=require(path.join(build,'score.js'));global.window={AudioContext:Context};
+ const full=expandSong(compose('House 120 BPM',{seed:91}),120,'full'),player=new Player(),progress=[];let ended=0;
+ player.loop=false;await player.start(full,p=>progress.push(p),()=>ended++);
+ const ctx=player.context;ctx.currentTime=player.origin+duration(full)-2;
+ await new Promise(r=>setTimeout(r,65));assert.ok(progress.some(p=>p.bar>=full.bars-2));
+ ctx.currentTime=player.origin+duration(full)+3;await new Promise(r=>setTimeout(r,65));
+ assert.equal(ended,1);assert.equal(player.playing,false);assert.equal(ctx.state,'closed');
+});
+test('three-minute WAV export includes the complete song and optional effect tail',async()=>{
+ const {expandSong}=require(path.join(build,'score.js'));global.OfflineAudioContext=Context;
+ const full=expandSong(compose('House 120 BPM',{seed:81}),180,'full');
+ const wav=await renderWav(full,.65,true);assert.equal(wav.size,44+(duration(full)+2)*44100*4);
+});

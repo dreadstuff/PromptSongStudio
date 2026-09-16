@@ -111,3 +111,11 @@ New generations can develop through **Intro → Theme → Build → Peak → Rel
 Scores play once by default when generated; the bottom Loop switch can repeat them. The section strip follows playback. Changing a score's length or structure rebuilds its sections from the base phrase; Undo restores previous edits. Existing saved loops are preserved. The shared validated plan format is ready for a future server planner; no cloud model is connected yet.
 
 Pre-expansion backup: [`backup/explore-refine-demo08`](https://github.com/dreadstuff/PromptSongStudio/tree/backup/explore-refine-demo08).
+
+## Demo 10: expand a favorite
+
+Click **Expand into full song** on a take. Choose **2 minutes**, **3 minutes**, or **Custom** (120–300 seconds). The new arrangement rounds up to a complete two-bar phrase; the dialog shows its actual expected duration. The original and the expanded song open together in a new Recent batch, with the full song selected and Loop off. The previous batch stays in Recent.
+
+Expansion keeps tempo, key, instruments, mix, and the accepted theme, including edits to that theme in a score. It develops eight sections: Intro, Theme, Variation, Build, Peak, Breakdown, Return, and Release. Full songs remain editable and support Save, JSON import/export, and stereo WAV. Changing tempo later changes the duration. Generation and expansion run locally without a cloud model or login.
+
+Pre-update backup: [`backup/evolving-scores-demo09`](https://github.com/dreadstuff/PromptSongStudio/tree/backup/evolving-scores-demo09).

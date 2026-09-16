@@ -79,13 +79,62 @@ const server=http.createServer((req,res)=>{
   await page.getByRole('combobox',{name:'Song length',exact:true}).click();
   await page.getByRole('option',{name:'32 bars',exact:true}).click();
   assert.equal(await page.locator('.score-section small').allTextContents().then(a=>a.reduce((n,x)=>n+parseInt(x),0)),32);
+  // Expansion always targets the clicked take, and cancellation preserves the session.
+  const source=await page.evaluate(()=>JSON.parse(localStorage.getItem('pss:session:v1')));
+  const secondTitle=await cards.nth(1).locator('.take-details strong').innerText();
+  await page.getByRole('button',{name:'Expand track 2 into full song',exact:true}).click();
+  assert.ok((await page.getByRole('dialog').innerText()).includes(secondTitle));
+  await page.getByRole('combobox',{name:'Full song duration',exact:true}).click();
+  await page.getByRole('option',{name:'Custom',exact:true}).click();
+  await page.getByRole('spinbutton',{name:'Duration in seconds (120–300)',exact:true}).fill('119');
+  assert.equal(await page.getByRole('button',{name:'Create full song',exact:true}).isDisabled(),true);
+  await page.getByRole('spinbutton',{name:'Duration in seconds (120–300)',exact:true}).fill('150');
+  assert.equal(await page.getByRole('button',{name:'Create full song',exact:true}).isEnabled(),true);
+  await page.getByRole('button',{name:'Cancel',exact:true}).click();
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('pss:session:v1'))),source);
+  // Two-minute expansion keeps the original beside a separately selected full song.
+  await page.getByRole('button',{name:'Expand track 1 into full song',exact:true}).click();
+  await page.getByRole('button',{name:'Create full song',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelectorAll('.take-card').length===2);
+  assert.equal(await page.locator('.score-section').count(),8);
+  assert.equal(await page.getByRole('switch',{name:'Loop',exact:true}).getAttribute('aria-checked'),'false');
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pss:session:v1'))?.arrangement?.plan.version===2);
+  const pair=await page.evaluate(()=>{const r=JSON.parse(localStorage.getItem('pss:recent:v1'));return r.batches.find(b=>b.id===r.activeId).takes;});
+  assert.deepEqual(pair[0],source);assert.notEqual(pair[1].id,source.id);assert.equal(pair[1].arrangement.plan.targetSeconds,120);
+  assert.ok(pair[1].bars*240/pair[1].bpm>=120);
+  await cards.nth(1).getByRole('button',{name:/^Play track/}).click();
+  await cards.nth(1).getByRole('button',{name:/^Stop track/}).waitFor();
+  await page.getByRole('button',{name:'Stop playback',exact:true}).click();
+  // Generate three minutes from the same favorite, then restore/save/export the result.
+  await page.getByRole('button',{name:'Expand track 1 into full song',exact:true}).click();
+  await page.getByRole('combobox',{name:'Full song duration',exact:true}).click();
+  await page.getByRole('option',{name:'3 minutes',exact:true}).click();
+  await page.getByRole('button',{name:'Create full song',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pss:session:v1'))?.arrangement?.plan.targetSeconds===180);
+  const expanded=await page.evaluate(()=>JSON.parse(localStorage.getItem('pss:session:v1')));
+  await page.reload();
+  await page.waitForFunction(()=>document.querySelectorAll('.take-card').length===2);
+  assert.equal(await page.locator('.score-section').count(),8);
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('pss:session:v1'))),expanded);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Expanded song must fit mobile width');
+  await page.getByRole('button',{name:'Save track 2',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pss:songs:v1')).some(s=>s.arrangement?.plan.targetSeconds===180));
+  await page.setViewportSize({width:1440,height:1000});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   // Render native Web Audio to a WAV file, not just a mock audio graph.
   await page.getByRole('button',{name:'Export',exact:true}).click();
-  const downloadPromise=page.waitForEvent('download');
+  const jsonPromise=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Download song JSON',exact:true}).click();
+  const jsonDownload=await jsonPromise;assert.deepEqual(JSON.parse(fs.readFileSync(await jsonDownload.path(),'utf8')),expanded);
+  const downloadPromise=page.waitForEvent('download',{timeout:90000});
   await page.getByRole('button',{name:'Download WAV',exact:true}).click();
   const download=await downloadPromise;const wav=fs.readFileSync(await download.path());
-  assert.equal(wav.subarray(0,4).toString(),'RIFF');assert.equal(wav.readUInt16LE(22),2);assert.ok(wav.length>1000000);
+  assert.equal(wav.subarray(0,4).toString(),'RIFF');assert.equal(wav.readUInt16LE(22),2);assert.equal(wav.length,44+Math.ceil((expanded.bars*240/expanded.bpm+2)*44100)*4);
+  assert.ok(wav.some((v,i)=>i>=44&&v!==0),'Native full-song render must contain audio');
+  await page.locator('input[type=file]').setInputFiles(await jsonDownload.path());
+  await page.getByText('Song imported.',{exact:true}).waitFor();
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('pss:session:v1'))),expanded);
   assert.deepEqual(errors,[]);
-  console.log('Browser checks passed: default simplicity, direct playback, switching, bottom-player sync, edit retention, Studio mode, desktop/mobile fit.');
+  console.log('Browser checks passed: default simplicity, direct playback, switching, bottom-player sync, edit retention, Studio mode, desktop/mobile fit, expansion/cancel/durations, original retention, full-song storage, JSON round trip, and native three-minute WAV.');
  }finally{if(browser)await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

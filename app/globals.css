@@ -150,3 +150,16 @@
 }
 .direction-badge{color:#d3e8ae;font-weight:600}.simple-studio .take-card{flex-wrap:wrap}.simple-studio .take-details{min-width:200px}.simple-studio .take-actions{flex-wrap:wrap;margin-left:auto}.simple-studio .take-actions .button{font-size:12px;padding:9px 10px}.results-heading{flex-wrap:wrap}.saved-song strong{overflow-wrap:anywhere}@media(max-width:760px){.simple-studio .take-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.simple-studio .take-details{min-width:0}.results-heading>button{align-self:flex-start}}
 .score-progress{display:flex;gap:5px;margin-top:15px}.score-section{min-width:0;padding:9px 5px;border-radius:5px;background:#233028;text-align:center;border-bottom:2px solid #415b3e}.score-section strong{display:block;font-size:12px;font-weight:500}.score-section small{display:block;font-size:10px;color:#a3b4a4}.score-section.active{background:#3b512b;border-color:#dcf995;color:#dcf995}.simple-studio .phrase-controls .choice{max-width:55%}@media(max-width:480px){.score-section strong{font-size:10px}.score-section{padding:8px 2px}.phrase-controls{align-items:flex-start;flex-direction:column}.simple-studio .phrase-controls .choice{max-width:100%;width:100%}}
+
+/* Full-song expansion keeps duration choices off the main canvas. */
+.expand-track{color:#d8efa5!important}
+.expand-dialog{max-height:85dvh;overflow-y:auto}
+.expand-dialog .setting-row{margin:4px 0}
+.custom-duration{display:grid;gap:8px;font-size:14px}
+.custom-duration input{width:100%;min-width:0;border:1px solid var(--border);border-radius:6px;background:var(--background);padding:10px;color:var(--foreground)}
+.custom-duration input:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.expansion-preview{padding:12px;border-radius:7px;background:#233028;color:#d4e7bd;font-size:14px;line-height:1.5}
+.expand-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.full-song-length{display:block;padding:10px 0;color:#c3d2bf;font-size:13px}
+.score-progress.full-score{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:760px){.take-actions .button:last-child:nth-child(odd){grid-column:1/-1}.score-progress.full-score .score-section strong{font-size:11px}.expand-dialog .setting-row{gap:12px}}
