@@ -1,4 +1,4 @@
-import { TRACKS, type Track, type Song, noteMidi, duration, stepTime, encodeWav, rng, patternForBar, noteBeats, noteDelay } from './song';
+import { TRACKS, type Track, type Song, noteMidi, chordDegree, duration, stepTime, encodeWav, rng, patternForBar, noteBeats, noteDelay } from './song';
 const frequency=(midi:number)=>440*2**((midi-69)/12);
 export type Progress={step:number;bar:number;elapsed:number};
 export class Synth {
@@ -41,16 +41,16 @@ export class Synth {
     if(track==='snare')this.tone(track,kit==='breakbeat'?58:kit==='808'?64:50,time,kit==='808'?.06:.1,'triangle',velocity*.2);
   }
   step(s:Song,absoluteStep:number,time:number){
-    const i=absoluteStep%16,bar=Math.floor(absoluteStep/16),chord=s.chords[bar%4],beat=60/s.bpm,patterns=patternForBar(s,bar);
+    const i=absoluteStep%16,bar=Math.floor(absoluteStep/16),chord=chordDegree(s,bar),beat=60/s.bpm,patterns=patternForBar(s,bar),expression=s.arrangement?.bars[bar]?.expression??1;
     for(const track of TRACKS){
       const v=patterns[track][i],at=time+noteDelay(s,absoluteStep,track);
-      if(['kick','snare','hat'].includes(track)){if(v>0)this.drum(track,at,v,s.sound.kit);}
+      if(['kick','snare','hat'].includes(track)){if(v>0)this.drum(track,at,v*expression,s.sound.kit);}
       else if(track==='bass'&&v>=0){
         const length=beat*noteBeats(s,'bass',i,bar);
-        this.tone(track,noteMidi(s,chord+v,2),at,length,s.sound.bass==='acid'?'sawtooth':s.sound.bass==='sub'?'sine':'triangle',.5,.008,s.sound.bass==='acid'?1800:700);
+        this.tone(track,noteMidi(s,chord+v,2),at,length,s.sound.bass==='acid'?'sawtooth':s.sound.bass==='sub'?'sine':'triangle',.5*expression,.008,s.sound.bass==='acid'?1800:700);
       }else if(track==='lead'&&v>=0){
         const midi=noteMidi(s,chord+v,s.performance?.leadOctave??4),length=beat*noteBeats(s,'lead',i,bar);
-        const accent=s.composerVersion===2?(i%4===0?1:.82):1;
+        const accent=(s.composerVersion===2?(i%4===0?1:.82):1)*expression;
         if(s.sound.lead==='bell'){
           this.tone(track,midi,at,length,'sine',.3*accent);this.tone(track,midi+12,at,s.performance?length*.42:beat*.5,'sine',.08*accent);
         }else if(s.sound.lead==='keys'){
@@ -59,17 +59,28 @@ export class Synth {
           this.tone(track,midi+19,at,length*.19,'sine',.02*accent,.002,5000);
         }else if(s.sound.lead==='sine'){
           this.tone(track,midi,at,length,'sine',.3*accent,.16,4000);
+        }else if(s.sound.lead==='reed'){
+          this.tone(track,midi,at,length,'triangle',.22*accent,.055,2200);
+          this.tone(track,midi+19,at,length*.7,'sine',.045*accent,.04,3400);
+        }else if(s.sound.lead==='mallet'){
+          this.tone(track,midi,at,length*.9,'sine',.32*accent,.002,4800);
+          this.tone(track,midi+19,at,length*.22,'sine',.075*accent,.002,6500);
+          this.tone(track,midi+28,at,length*.12,'sine',.025*accent,.002,7500);
+        }else if(s.sound.lead==='strings'){
+          this.tone(track,midi,at,length,'sawtooth',.085*accent,.12,2100,-7);
+          this.tone(track,midi,at,length,'triangle',.14*accent,.16,2400,7);
         }else if(s.sound.lead==='supersaw'){
           for(const detune of [-9,0,9])this.tone(track,midi,at,length,'sawtooth',.075*accent,.012,3600,detune);
         }else this.tone(track,midi,at,length,s.sound.lead==='square'?'square':'sawtooth',.2*accent,.008,s.sound.lead==='square'?4000:2800);
       }else if(track==='pad'&&v>0){
         const length=beat*noteBeats(s,'pad',i,bar),keys=s.sound.pad==='keys';
-        const voicing=keys?[0,2,4,6]:[0,2,4];
+        const inversion=s.arrangement?.bars[bar]?.inversion??0;
+        const voicing=(keys?[0,2,4,6]:[0,2,4]).map((degree,index)=>degree+(index<inversion?7:0));
         for(const degree of voicing){
           const midi=noteMidi(s,chord+degree,3);
-          this.tone(track,midi,at,length,keys?'triangle':s.sound.pad==='glass'?'sine':'sawtooth',.105*v,keys?.006:.18,keys?2600:1300,keys?0:-4);
-          if(!keys)this.tone(track,midi,at,length,'triangle',.08*v,.2,1000,4);
-          else this.tone(track,midi+12,at,length*.35,'sine',.025*v,.004,4000);
+          this.tone(track,midi,at,length,keys?'triangle':s.sound.pad==='glass'?'sine':'sawtooth',.105*v*expression,keys?.006:.18,keys?2600:1300,keys?0:-4);
+          if(!keys)this.tone(track,midi,at,length,'triangle',.08*v*expression,.2,1000,4);
+          else this.tone(track,midi+12,at,length*.35,'sine',.025*v*expression,.004,4000);
         }
       }
     }

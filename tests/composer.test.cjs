@@ -26,7 +26,7 @@ test('WAV export has correct stereo PCM header, clipping and nonfinite handling'
 class Param {value=0;setValueAtTime(v,t){assert.ok(Number.isFinite(v)&&Number.isFinite(t)&&t>=0);}linearRampToValueAtTime(v,t){this.setValueAtTime(v,t);}exponentialRampToValueAtTime(v,t){assert.ok(v>0);this.setValueAtTime(v,t);}setTargetAtTime(v,t,c){assert.ok(c>0);this.setValueAtTime(v,t);}}
 class Node {constructor(ctx){this.ctx=ctx;for(const key of ['gain','frequency','detune','Q','delayTime','threshold','knee','ratio','attack','release'])this[key]=new Param();}connect(){return this;}disconnect(){}start(t){assert.ok(Number.isFinite(t)&&t>=0);this.started=t;this.ctx.events.push({time:t});}stop(t){assert.ok(t>this.started);}getByteFrequencyData(a){a.fill(0);}}
 class Context {currentTime=0;sampleRate=8000;events=[];state='running';constructor(channels=2,length=8000,rate=8000){this.sampleRate=rate;this.channels=channels;this.length=length;this.destination=new Node(this);}createGain(){return new Node(this);}createDynamicsCompressor(){return new Node(this);}createAnalyser(){return new Node(this);}createConvolver(){return new Node(this);}createDelay(){return new Node(this);}createBiquadFilter(){return new Node(this);}createOscillator(){return new Node(this);}createBufferSource(){return new Node(this);}createBuffer(channels,length,rate){const c=Array.from({length:channels},()=>new Float32Array(length));return {sampleRate:rate,getChannelData:i=>c[i]};}async startRendering(){return this.createBuffer(this.channels,this.length,this.sampleRate);}async resume(){this.state='running';}async close(){this.state='closed';}}
-test('all voices and instruments schedule finite positive envelopes',()=>{for(const genre of GENRES)for(const lead of ['bell','square','pluck','keys','sine','supersaw']){const s=compose('Melodic music',{genre,seed:7});s.sound.lead=lead;const ctx=new Context(),synth=new Synth(ctx,s);for(let step=0;step<s.bars*16;step++)synth.step(s,step,stepTime(s,step));assert.ok(ctx.events.length>0, `${genre} ${lead} must schedule audible voices`);synth.updateMix({...s,muted:{...s.muted,bass:true}},.4);}});
+test('all voices and instruments schedule finite positive envelopes',()=>{for(const genre of GENRES)for(const lead of ['bell','square','pluck','keys','sine','supersaw','reed','mallet','strings']){const s=compose('Melodic music',{genre,seed:7});s.sound.lead=lead;const ctx=new Context(),synth=new Synth(ctx,s);for(let step=0;step<s.bars*16;step++)synth.step(s,step,stepTime(s,step));assert.ok(ctx.events.length>0, `${genre} ${lead} must schedule audible voices`);synth.updateMix({...s,muted:{...s.muted,bass:true}},.4);}});
 test('export duration is exact and optional tail adds two seconds',async()=>{global.OfflineAudioContext=Context;const s={...compose('House'),bars:4,bpm:120};const loop=await renderWav(s,.65,false),full=await renderWav(s,.65,true);assert.equal(loop.size,44+8*44100*4);assert.equal(full.size-loop.size,2*44100*4);});
 test('rapid start/stop cannot leave audio playing and closes contexts',async()=>{global.window={AudioContext:Context};const p=new Player(),s=compose('House');const pending=p.start(s,()=>{},()=>{});const ctx=p.context;p.stop();await pending;assert.equal(p.playing,false);assert.equal(p.context,null);assert.equal(ctx.state,'closed');await p.start(s,()=>{},()=>{});assert.equal(p.playing,true);assert.ok(p.context.events.length>0);p.stop();assert.equal(p.timer,null);});
 
@@ -219,4 +219,51 @@ test('recent generations round trip, cap storage and recover valid tracks from c
  const raw=JSON.stringify({version:1,activeId:'14',batches});assert.deepEqual(readRecent(raw),{batches,activeId:'14'});
  assert.deepEqual(readRecent('{broken'),{batches:[],activeId:''});
  const recovered=readRecent(JSON.stringify({version:1,activeId:'a',batches:[null,{id:'a',createdAt:1,label:'Example',takes:[null,compose('House')]}]}));assert.equal(recovered.batches[0].takes.length,1);
+});
+
+test('scores develop across five sections and safely round trip for every style',()=>{
+ const {composeBatch}=require(path.join(build,'song.js'));
+ for(const genre of GENRES)for(const length of [16,32])for(let seed=0;seed<12;seed++){
+  const s=composeBatch('Music at 120 BPM in D minor',1,{genre,form:'score',length,seed})[0];
+  assert.equal(s.bars,length);assert.equal(s.arrangement.bars.length,length);assert.deepEqual(s.arrangement.plan.sections.map(s=>s.role),['Intro','Theme','Build','Peak','Release']);
+  assert.deepEqual(validateSong(JSON.parse(JSON.stringify(s))),s);
+  const peak=s.arrangement.bars.find(b=>b.role==='Peak');assert.ok(peak.expression>s.arrangement.bars[0].expression);assert.equal(s.arrangement.bars.at(-1).chord,0);
+  for(const b of s.arrangement.bars)for(const t of TRACKS)assert.equal(b.patterns[t].length,16);
+ }
+});
+test('score motifs return with changed phrasing and individual bar edits stay isolated',()=>{
+ const {composeBatch}=require(path.join(build,'song.js'));
+ const s=composeBatch('Chiptune boss fight',1,{form:'score',length:32,seed:61})[0];
+ const theme=s.arrangement.bars.find(b=>b.role==='Theme'),peak=s.arrangement.bars.find(b=>b.role==='Peak');
+ assert.notDeepEqual(theme.patterns.lead,peak.patterns.lead);
+ const changed=editPatternStep(s,20,'lead',1,13);assert.equal(patternForBar(changed,20).lead[1],13);assert.deepEqual(patternForBar(changed,0),patternForBar(s,0));assert.deepEqual(changed.patterns,s.patterns);assert.throws(()=>editPatternStep(s,32,'lead',0,1));
+});
+test('score exclusions, related takes and legacy loop behavior remain compatible',()=>{
+ const {composeBatch,moreLike}=require(path.join(build,'song.js'));
+ const s=composeBatch('House without drums, no melody, no bass',1,{form:'score',seed:13})[0];
+ for(const p of s.arrangement.bars.map(b=>b.patterns)){for(const t of ['kick','snare','hat'])assert.ok(p[t].every(v=>v===0));for(const t of ['lead','bass'])assert.ok(p[t].every(v=>v===-1));}
+ const score=composeBatch('Dungeon boss fight',1,{form:'score',seed:17})[0],next=moreLike(score,2,81);
+ for(const v of next){assert.deepEqual(v.arrangement.bars[0],score.arrangement.bars[0]);assert.equal(v.bars,score.bars);assert.deepEqual(v.arrangement.plan,score.arrangement.plan);}
+ assert.ok(next.some(v=>JSON.stringify(v.arrangement)!==JSON.stringify(score.arrangement)));
+ const loop=compose('House',{seed:13});assert.equal(loop.arrangement,undefined);assert.deepEqual(patternForBar(loop,8),loop.patterns);
+});
+test('invalid score plans and mismatched arrangements are rejected before playback',()=>{
+ const {localPlan,validatePlan}=require(path.join(build,'plan.js'));
+ const {composeBatch}=require(path.join(build,'song.js'));
+ for(const value of [null,{}, {version:1,sections:[]}, {...localPlan(),sections:localPlan().sections.map(s=>({...s,bars:999}))}, {...localPlan(),sections:localPlan().sections.map(s=>({...s,density:NaN}))}])assert.throws(()=>validatePlan(value));
+ const s=composeBatch('House',1,{form:'score'})[0];assert.throws(()=>validateSong({...s,bars:8}));const bad=structuredClone(s);bad.arrangement.bars[0].inversion=8;assert.throws(()=>validateSong(bad));
+});
+test('synth schedules all score sections, new voices and arranged harmony through the shared audio path',()=>{
+ const {composeBatch,chordDegree}=require(path.join(build,'song.js'));
+ for(const lead of ['reed','mallet','strings']){
+  const s=composeBatch(`House with ${lead}`,1,{form:'score',seed:42})[0];assert.equal(s.sound.lead,lead);
+  const synth=new Synth(new Context(),s);for(let step=0;step<s.bars*16;step++)synth.step(s,step,stepTime(s,step));
+  s.arrangement.bars[0].chord=4;s.arrangement.bars[0].inversion=1;s.arrangement.bars[0].patterns.pad[0]=1;
+  const pad=[];synth.tone=(track,midi)=>{if(track==='pad')pad.push(midi);};synth.step(s,0,0);assert.equal(chordDegree(s,0),4);assert.ok(pad.includes(noteMidi(s,4+7,3)));
+ }
+});
+test('score WAV exports have the complete arranged duration',async()=>{
+ global.OfflineAudioContext=Context;const {composeBatch}=require(path.join(build,'song.js'));
+ const s=composeBatch('House 120 BPM',1,{form:'score',length:16})[0];
+ const wav=await renderWav(s,.65,false);assert.equal(wav.size,44+32*44100*4);
 });

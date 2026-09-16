@@ -24,6 +24,8 @@ const server=http.createServer((req,res)=>{
   await page.getByRole('button',{name:'Create 3 tracks',exact:true}).click();
   await page.waitForFunction(()=>document.querySelectorAll('.take-card').length===3);
   const cards=page.locator('.take-card');
+  assert.equal(await page.locator('.score-section').count(),5);
+  assert.ok((await page.locator('.score-progress').innerText()).includes('Release'));
   await cards.nth(0).getByRole('button',{name:/^Play track/}).click();
   await cards.nth(0).getByRole('button',{name:/^Stop track/}).waitFor();
   await cards.nth(1).getByRole('button',{name:/^Play track/}).click();
@@ -34,6 +36,11 @@ const server=http.createServer((req,res)=>{
   await cards.nth(1).getByRole('button',{name:/^Play track/}).waitFor();
   await cards.nth(0).getByRole('button',{name:'Customize track 1',exact:true}).click();
   await page.getByRole('textbox',{name:'Song title',exact:true}).fill('Saved edit while comparing');
+  await page.getByRole('combobox',{name:'Pattern bar',exact:true}).click();
+  await page.getByRole('option',{name:'Bar 12 · Peak',exact:true}).click();
+  assert.ok((await page.locator('.phrase-controls').innerText()).includes('bar 12 · Peak'));
+  const note=page.getByRole('button',{name:/^Melody step 1:/}),before=await note.getAttribute('aria-label');
+  await note.click();assert.notEqual(await note.getAttribute('aria-label'),before);
   await cards.nth(1).getByRole('button',{name:/^Play track/}).click();
   await cards.nth(0).getByRole('button',{name:/^Play track/}).click();
   assert.equal(await page.getByRole('textbox',{name:'Song title',exact:true}).inputValue(),'Saved edit while comparing');
@@ -68,6 +75,16 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelectorAll('.take-card').length===4);
   assert.ok((await cards.nth(0).innerText()).includes('Saved edit while comparing'));
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.getByRole('button',{name:'Customize track 1',exact:true}).click();
+  await page.getByRole('combobox',{name:'Song length',exact:true}).click();
+  await page.getByRole('option',{name:'32 bars',exact:true}).click();
+  assert.equal(await page.locator('.score-section small').allTextContents().then(a=>a.reduce((n,x)=>n+parseInt(x),0)),32);
+  // Render native Web Audio to a WAV file, not just a mock audio graph.
+  await page.getByRole('button',{name:'Export',exact:true}).click();
+  const downloadPromise=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Download WAV',exact:true}).click();
+  const download=await downloadPromise;const wav=fs.readFileSync(await download.path());
+  assert.equal(wav.subarray(0,4).toString(),'RIFF');assert.equal(wav.readUInt16LE(22),2);assert.ok(wav.length>1000000);
   assert.deepEqual(errors,[]);
   console.log('Browser checks passed: default simplicity, direct playback, switching, bottom-player sync, edit retention, Studio mode, desktop/mobile fit.');
  }finally{if(browser)await browser.close();server.close();}

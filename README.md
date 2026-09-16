@@ -103,3 +103,11 @@ GitHub is the primary repository and GitHub Pages is the public demo. Pushes to 
 ## Demo 08: explore and refine
 
 Generate distinct arrangement directions, use **More like this** to keep an original beside related variations, and reopen the last 12 batches through **Recent**. History stays on this browser and rolls off after 12 batches; saved favorites and JSON backups remain available. See [the musical variety plan](docs/music-variety.md) for the engine's limits and expansion options. The pre-update build is preserved on `backup/simple-studio-demo07`.
+
+## Demo 09: evolving scores
+
+New generations can develop through **Intro → Theme → Build → Peak → Release**, with 16 or 32 individually editable bars. Choose **Loop** in Music settings for the original phrase-based form. Scores include motif transformations, percussion entrances/fills, section dynamics, chord inversions and a resolving ending. New synthesized melody tones are **reed**, **mallet**, and **strings**, available in prompts and Sound & mix.
+
+Scores play once by default when generated; the bottom Loop switch can repeat them. The section strip follows playback. Changing a score's length or structure rebuilds its sections from the base phrase; Undo restores previous edits. Existing saved loops are preserved. The shared validated plan format is ready for a future server planner; no cloud model is connected yet.
+
+Pre-expansion backup: [`backup/explore-refine-demo08`](https://github.com/dreadstuff/PromptSongStudio/tree/backup/explore-refine-demo08).

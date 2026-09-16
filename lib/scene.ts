@@ -5,7 +5,7 @@ import type { Interpretation } from './interpret';
 // Explicit genre selections retain their own characteristic rhythm palette.
 export function applyScene(s:Song,plan:Interpretation,random:()=>number):Song {
   if(plan.genreSource!=='scene'||plan.scene==='neutral')return s;
-  const phrases=[s.patterns,...(s.variations??[])];
+  const phrases=[s.patterns,...(s.variations??[]),...(s.arrangement?.bars.map(b=>b.patterns)||[])];
   const fill=(positions:number[],value:number,empty=0)=>Array.from({length:16},(_,i)=>positions.includes(i)?value:empty);
   if(plan.scene==='battle'){
     const drive=.55+plan.energy*.45;
@@ -52,7 +52,7 @@ export function applyScene(s:Song,plan:Interpretation,random:()=>number):Song {
 }
 
 export function applyExclusions(s:Song):Song {
-  const phrases=[s.patterns,...(s.variations??[])];
+  const phrases=[s.patterns,...(s.variations??[]),...(s.arrangement?.bars.map(b=>b.patterns)||[])];
   const prompt=s.prompt.toLowerCase();
   for(const p of phrases){
     if(/\b(?:no|without) (?:any )?(?:drums|percussion)\b/.test(prompt))for(const t of ['kick','snare','hat'] as Track[])p[t].fill(0);

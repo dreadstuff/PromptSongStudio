@@ -28,3 +28,27 @@ A model-generated audio service is a different route: it may offer richer finish
 ## Backup
 
 The pre-change Simple Studio build is preserved in GitHub branch `backup/simple-studio-demo07`, pointing to commit `dfec15fc57222d7ef542ef8e42fc773acca447b8`. Restore selected files through a new commit if needed; do not overwrite later history with a force push.
+
+## Demo 09: first expansion milestone
+
+Implemented:
+
+- New generation defaults to an **Evolving score** with 16 or 32 bars. Intro, Theme, Build, Peak and Release have distinct note patterns and dynamics. Loop generation remains selectable.
+- A motif is quoted in the introduction, answered in the theme, sequenced during the build, raised in the peak and resolved in the release. Supporting percussion enters and leaves, with fills and a tonic ending.
+- More progression choices for synthwave, house, lo-fi and ambient. Score chords use nearby inversions to reduce abrupt register jumps.
+- New synthesized reed, mallet and strings voices. These are oscillator-based sounds, not sampled acoustic instruments.
+- Every arranged bar is stored, validated, exported and individually editable. Playback and WAV rendering use the same patterns, chord degree, inversion and expression values.
+- More like this keeps the score plan and exact opening bar while developing related phrases. Legacy saves without arrangement data keep their loop behavior.
+- A compact section strip follows playback. Structure and length controls are inside Music settings; selected-track structure/length and bar editing are in Customize. Changing structure or length rebuilds score sections; Undo can restore edits.
+
+### Model integration status
+
+`lib/plan.ts` defines and strictly validates the first shared musical-plan contract: five ordered sections, bounded density, and a total of 16 or 32 bars. `buildScore(source, length, plan)` can accept a validated plan from a future server. The local planner works with no network or credentials.
+
+No cloud model, API subscription, model backend, or sampled-instrument service has been connected. There is no model API credential available in this project's execution environment. GitHub Pages still serves a static app. Before connecting a model, provision a separate server endpoint with a securely stored provider credential, request limits and a usage budget; preserve local generation as fallback. The current contract is a foundation for section planning, not yet an arbitrary narrative-to-full-score model pipeline.
+
+### Compatibility and recovery
+
+Score data uses an optional `arrangement` extension under the existing v1 song format. Import rejects malformed section lengths or invalid score bars rather than playing partial data. JSON imports up to 500 KB accommodate complete scores. Recent history remains capped at 12 batches; browser storage failures prompt export of favorites.
+
+The exact Demo 08 build is preserved at `backup/explore-refine-demo08`, commit `b5e4de4e12c2f460650c03899caffa759661c12f`. No saved songs are automatically rewritten.

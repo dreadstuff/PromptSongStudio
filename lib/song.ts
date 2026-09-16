@@ -2,6 +2,7 @@ import { interpretPrompt, positiveDescription, type Interpretation } from './int
 import { applyScene, applyExclusions } from './scene';
 import { composePhrases } from './composer';
 import { generateTitle } from './title';
+import { buildScore, validateArrangement, type Arrangement } from './score';
 export const TRACKS = ['kick','snare','hat','bass','lead','pad'] as const;
 export type Track = typeof TRACKS[number];
 export const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -10,7 +11,7 @@ export const GENRES = ['Synthwave','House','Lo-fi','Ambient','Drum & bass','Chip
 export type Genre = typeof GENRES[number];
 export const DIRECTIONS=['Melody-led','Rhythm-led','Atmospheric','Balanced','Pulse'] as const;
 export type Direction=typeof DIRECTIONS[number];
-export type Song = { direction?:Direction; version:1; id:string; title:string; prompt:string; seed:number; genre:Genre; bpm:number; root:number; scale:keyof typeof SCALES; bars:number; swing:number; energy:number; chords:number[]; patterns:Record<Track,number[]>; mix:Record<Track,number>; muted:Record<Track,boolean>; sound:{bass:'round'|'acid'|'sub';lead:'pluck'|'bell'|'square'|'keys'|'sine'|'supersaw';pad:'warm'|'glass'|'keys';kit?:'tight'|'soft'|'retro'|'breakbeat'|'808';reverb:number;delay:number};composerVersion?:2;variations?:Record<Track,number[]>[];performance?:{bassGate:number;leadGate:number;padGate:number;leadOctave:number;humanize:number};interpretation?:{version:1;scene:Interpretation['scene'];mood:string;genreSource?:Interpretation['genreSource']} };
+export type Song = { arrangement?:Arrangement; direction?:Direction; version:1; id:string; title:string; prompt:string; seed:number; genre:Genre; bpm:number; root:number; scale:keyof typeof SCALES; bars:number; swing:number; energy:number; chords:number[]; patterns:Record<Track,number[]>; mix:Record<Track,number>; muted:Record<Track,boolean>; sound:{bass:'round'|'acid'|'sub';lead:'pluck'|'bell'|'square'|'keys'|'sine'|'supersaw'|'reed'|'mallet'|'strings';pad:'warm'|'glass'|'keys';kit?:'tight'|'soft'|'retro'|'breakbeat'|'808';reverb:number;delay:number};composerVersion?:2;variations?:Record<Track,number[]>[];performance?:{bassGate:number;leadGate:number;padGate:number;leadOctave:number;humanize:number};interpretation?:{version:1;scene:Interpretation['scene'];mood:string;genreSource?:Interpretation['genreSource']} };
 export const EXAMPLES = [
   {title:'Into the boss room',genre:'Story prompt',prompt:'Dungeon Crawler Carl enters into a boss fight with upbeat and fast music.',color:'#c6a0ff'},
   {title:'Main character energy',genre:'House',prompt:'Uplifting house at 128 BPM in F major. Four-on-the-floor drums, an acid bass, bright plucks, and big weekend energy.',color:'#dafa7b'},
@@ -26,9 +27,9 @@ export function validatePattern(raw:unknown):Song['patterns']{
   for(const t of TRACKS){const p=source[t];if(!Array.isArray(p)||p.length!==16||p.some(v=>typeof v!=='number'||!Number.isFinite(v)))throw new Error(`${t} must have 16 numeric steps.`);result[t]=p.map(v=>t==='bass'||t==='lead'?Math.round(bounded(v,-1,13,-1)):bounded(v,0,1,0));}
   return result;
 }
-export function patternForBar(s:Song,bar:number):Song['patterns']{const i=((Math.floor(bar)%4)+4)%4;return s.composerVersion===2&&i>0?s.variations![i-1]:s.patterns;}
+export function patternForBar(s:Song,bar:number):Song['patterns']{if(s.arrangement)return s.arrangement.bars[((Math.floor(bar)%s.bars)+s.bars)%s.bars].patterns;const i=((Math.floor(bar)%4)+4)%4;return s.composerVersion===2&&i>0?s.variations![i-1]:s.patterns;}
 export function editPatternStep(s:Song,bar:number,track:Track,step:number,value:number):Song{
-  if(!Number.isInteger(bar)||bar<0||bar>3||!Number.isInteger(step)||step<0||step>15)throw new Error('Invalid pattern position.');
+  if(!Number.isInteger(bar)||bar<0||bar>=(s.arrangement?s.bars:4)||!Number.isInteger(step)||step<0||step>15)throw new Error('Invalid pattern position.');
   const copy=structuredClone(s),pattern=patternForBar(copy,bar);pattern[track][step]=value;return validateSong(copy);
 }
 export function noteBeats(s:Song,track:'bass'|'lead'|'pad',step:number,bar:number){
@@ -48,9 +49,10 @@ export function validateSong(raw:unknown):Song {
   if(s.composerVersion!==undefined&&s.composerVersion!==2)throw new Error('Unsupported composer version.');
   if(s.composerVersion===2&&(!Array.isArray(s.variations)||s.variations.length!==3))throw new Error('This song needs three variation bars.');
   const extended:Partial<Song>=s.composerVersion===2?{composerVersion:2,variations:s.variations!.map(validatePattern),performance:{bassGate:bounded(s.performance?.bassGate,.1,1.4,.7),leadGate:bounded(s.performance?.leadGate,.1,1.5,.7),padGate:bounded(s.performance?.padGate,.1,1,.9),leadOctave:Math.round(bounded(s.performance?.leadOctave,3,5,4)),humanize:bounded(s.performance?.humanize,0,.02,0)}}:{};
+  if(s.arrangement)extended.arrangement=validateArrangement(s.arrangement,s.bars);
   const mix={} as Song['mix'], muted={} as Song['muted'];
   for(const t of TRACKS){mix[t]=bounded(s.mix?.[t],0,1,.65);muted[t]=s.muted?.[t]===true;}
-  return {...extended,...(DIRECTIONS.includes(s.direction as Direction)?{direction:s.direction}:{}),...(s.interpretation?.version===1?{interpretation:{version:1 as const,scene:['battle','chase','suspense','exploration','victory','rest','romance','sadness','neutral'].includes(s.interpretation.scene)?s.interpretation.scene:'neutral' as const,mood:typeof s.interpretation.mood==='string'?s.interpretation.mood.slice(0,40):'Balanced',...(s.interpretation.genreSource&&['manual','prompt','scene','fallback'].includes(s.interpretation.genreSource)?{genreSource:s.interpretation.genreSource}:{})}}:{}),version:1,id:typeof s.id==='string'?s.id.slice(0,80):`import-${hash(JSON.stringify(patterns))}`,title:typeof s.title==='string'?s.title.slice(0,80):'Untitled loop',prompt:typeof s.prompt==='string'?s.prompt.slice(0,2000):'',seed:bounded(s.seed,0,4294967295,1)>>>0,genre:GENRES.includes(s.genre)?s.genre:'Synthwave',bpm:Math.round(bounded(s.bpm,55,180,108)),root:Math.round(bounded(s.root,0,11,9)),scale:Object.hasOwn(SCALES,s.scale)?s.scale:'minor',bars:[4,8,16].includes(s.bars)?s.bars:8,swing:bounded(s.swing,0,.3,0),energy:bounded(s.energy,0,1,.65),chords:s.chords.map(v=>Math.round(bounded(v,0,6,0))),patterns,mix,muted,sound:{bass:['round','acid','sub'].includes(s.sound?.bass)?s.sound.bass:'round',lead:['pluck','bell','square','keys','sine','supersaw'].includes(s.sound?.lead)?s.sound.lead:'pluck',pad:['glass','keys'].includes(s.sound?.pad)?s.sound.pad:'warm',...(s.sound?.kit?{kit:['tight','soft','retro','breakbeat','808'].includes(s.sound.kit)?s.sound.kit:'tight' as const}:{}),reverb:bounded(s.sound?.reverb,0,.6,.2),delay:bounded(s.sound?.delay,0,.5,.2)}};
+  return {...extended,...(DIRECTIONS.includes(s.direction as Direction)?{direction:s.direction}:{}),...(s.interpretation?.version===1?{interpretation:{version:1 as const,scene:['battle','chase','suspense','exploration','victory','rest','romance','sadness','neutral'].includes(s.interpretation.scene)?s.interpretation.scene:'neutral' as const,mood:typeof s.interpretation.mood==='string'?s.interpretation.mood.slice(0,40):'Balanced',...(s.interpretation.genreSource&&['manual','prompt','scene','fallback'].includes(s.interpretation.genreSource)?{genreSource:s.interpretation.genreSource}:{})}}:{}),version:1,id:typeof s.id==='string'?s.id.slice(0,80):`import-${hash(JSON.stringify(patterns))}`,title:typeof s.title==='string'?s.title.slice(0,80):'Untitled loop',prompt:typeof s.prompt==='string'?s.prompt.slice(0,2000):'',seed:bounded(s.seed,0,4294967295,1)>>>0,genre:GENRES.includes(s.genre)?s.genre:'Synthwave',bpm:Math.round(bounded(s.bpm,55,180,108)),root:Math.round(bounded(s.root,0,11,9)),scale:Object.hasOwn(SCALES,s.scale)?s.scale:'minor',bars:[4,8,16,32].includes(s.bars)?s.bars:8,swing:bounded(s.swing,0,.3,0),energy:bounded(s.energy,0,1,.65),chords:s.chords.map(v=>Math.round(bounded(v,0,6,0))),patterns,mix,muted,sound:{bass:['round','acid','sub'].includes(s.sound?.bass)?s.sound.bass:'round',lead:['pluck','bell','square','keys','sine','supersaw','reed','mallet','strings'].includes(s.sound?.lead)?s.sound.lead:'pluck',pad:['glass','keys'].includes(s.sound?.pad)?s.sound.pad:'warm',...(s.sound?.kit?{kit:['tight','soft','retro','breakbeat','808'].includes(s.sound.kit)?s.sound.kit:'tight' as const}:{}),reverb:bounded(s.sound?.reverb,0,.6,.2),delay:bounded(s.sound?.delay,0,.5,.2)}};
 }
 export function compose(prompt:string,options:{genre?:string;energy?:number;seed?:number}={}):Song {
   const p=prompt.trim().slice(0,2000); if(!p)throw new Error('Describe a sound to get started.');
@@ -67,14 +69,15 @@ export function compose(prompt:string,options:{genre?:string;energy?:number;seed
   const toneText=positiveDescription(p);
   if(/acid/.test(toneText))sound.bass='acid';else if(/sub bass|808 bass/.test(toneText))sound.bass='sub';else if(/round bass/.test(toneText))sound.bass='round';
   if(/bell/.test(toneText))sound.lead='bell';else if(/square/.test(toneText))sound.lead='square';else if(/pluck|arpeggio/.test(toneText)&&genre!=='Trance')sound.lead='pluck';else if(/piano|keys/.test(toneText))sound.lead='keys';
+  if(/\b(?:reed|woodwind)\b/.test(toneText))sound.lead='reed';else if(/\b(?:mallet|marimba)\b/.test(toneText))sound.lead='mallet';else if(/\b(?:strings|string ensemble)\b/.test(toneText))sound.lead='strings';
   if(/warm pads?/.test(toneText))sound.pad='warm';else if(/glass/.test(toneText))sound.pad='glass';
   return validateSong(applyExclusions(scored));
 }
 /** Generate independent takes while preserving the same prompt and explicit settings. */
-export function composeBatch(prompt:string,count:number,options:{genre?:string;energy?:number;seed?:number}={}):Song[]{
+export function composeBatch(prompt:string,count:number,options:{genre?:string;energy?:number;seed?:number;form?:'score'|'loop';length?:16|32}={}):Song[]{
   if(!Number.isInteger(count)||count<1||count>5)throw new Error('Choose between 1 and 5 tracks.');
   const base=options.seed??hash(prompt);
-  return Array.from({length:count},(_,i)=>arrange(compose(prompt,{...options,seed:(base+Math.imul(i,0x9e3779b9))>>>0}),count===1?'Balanced':DIRECTIONS[i]));
+  return Array.from({length:count},(_,i)=>{const take=arrange(compose(prompt,{...options,seed:(base+Math.imul(i,0x9e3779b9))>>>0}),count===1?'Balanced':DIRECTIONS[i]);return options.form==='score'?validateSong(buildScore(take,options.length||16)):take;});
 }
 /** Arrangement changes rhythm, note space and balance without overriding prompt exclusions. */
 export function arrange(source:Song,direction:Direction):Song {
@@ -110,25 +113,29 @@ export function moreLike(source:Song,count:number,seed:number):Song[]{
     const nextSeed=(seed+Math.imul(i,0x9e3779b9))>>>0;
     const fresh=compose(source.prompt||source.genre,{genre:source.genre,energy:source.energy,seed:nextSeed});
     const variations=fresh.variations!.map((p,bar)=>{
-      const original=patternForBar(source,bar+1),next=structuredClone(original);
+      const original=source.variations?.[bar]||source.patterns,next=structuredClone(original);
       for(const t of ['kick','snare','hat','bass'] as const)next[t]=p[t];
       // Keep the melodic idea recognizable, but vary its ending and leave new rests.
       next.lead=original.lead.map((v,step)=>v<0?v:step>7&&((step+i+bar)%3===0)?-1:step>7?Math.min(13,Math.max(0,v+(i%2?2:-2))):v);
       return next;
     });
     const next=validateSong({...source,id:`song-${nextSeed}`,seed:nextSeed,composerVersion:2,patterns:structuredClone(source.patterns),variations,performance:source.performance||fresh.performance,title:source.title.replace(/ · variation \d+$/,'').slice(0,60)+` · variation ${i+1}`});
+    delete next.arrangement;
     const result=source.direction?arrange(next,source.direction):next;
     // Preserve the exact favorite opening, including hand edits.
     result.patterns=structuredClone(source.patterns);result.mix={...source.mix};result.sound={...source.sound};
+    if(source.arrangement){const scored=buildScore(result,source.bars as 16|32,source.arrangement.plan);scored.arrangement!.bars[0]=structuredClone(source.arrangement.bars[0]);return validateSong(applyExclusions(scored));}
     return validateSong(applyExclusions(result));
   });
 }
 export function noteMidi(s:Song,degree:number,octave:number){const scale=SCALES[s.scale];return octave*12+s.root+scale[((degree%7)+7)%7]+Math.floor(degree/7)*12;}
-export function chordName(s:Song,index:number){const d=s.chords[index%4],scale=SCALES[s.scale];const root=NOTES[(s.root+scale[d])%12];const third=noteMidi(s,d+2,4)-noteMidi(s,d,4),fifth=noteMidi(s,d+4,4)-noteMidi(s,d,4);return root+(fifth===6?'dim':third===3?'m':'');}
+export function chordDegree(s:Song,index:number){return s.arrangement?.bars[((index%s.bars)+s.bars)%s.bars].chord??s.chords[index%4];}
+export function chordName(s:Song,index:number){const d=chordDegree(s,index),scale=SCALES[s.scale];const root=NOTES[(s.root+scale[d])%12];const third=noteMidi(s,d+2,4)-noteMidi(s,d,4),fifth=noteMidi(s,d+4,4)-noteMidi(s,d,4);return root+(fifth===6?'dim':third===3?'m':'');}
 export function duration(s:Song){return s.bars*240/s.bpm;}
 export function remix(s:Song,seed:number){
   const fresh=compose(s.prompt||s.genre,{genre:s.interpretation?.genreSource==='scene'?'Auto':s.genre,energy:s.energy,seed});
-  return validateSong({...s,composerVersion:2,seed,id:`song-${seed}`,title:s.title.replace(/ · variation$/,'')+' · variation',patterns:fresh.patterns,variations:fresh.variations,performance:fresh.performance});
+  const remixed=validateSong({...s,composerVersion:2,seed,id:`song-${seed}`,title:s.title.replace(/ · variation$/,'')+' · variation',patterns:fresh.patterns,variations:fresh.variations,performance:fresh.performance});
+  return s.arrangement?validateSong(buildScore(remixed,s.bars as 16|32,s.arrangement.plan)):remixed;
 }
 export function stepTime(s:Song,step:number){const d=60/s.bpm/4;return step*d+(step%2?s.swing*d:0);}
 export function encodeWav(channels:Float32Array[],sampleRate:number){
