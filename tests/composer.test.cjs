@@ -329,3 +329,22 @@ test('three-minute WAV export includes the complete song and optional effect tai
  const full=expandSong(compose('House 120 BPM',{seed:81}),180,'full');
  const wav=await renderWav(full,.65,true);assert.equal(wav.size,44+(duration(full)+2)*44100*4);
 });
+
+test('long offline rendering schedules bounded batches in one context and reports real progress',async()=>{
+ const {expandSong}=require(path.join(build,'score.js'));let instance;
+ class BatchedContext extends Context {
+  constructor(...args){super(...args);instance=this;this.pauses=[];this.ahead=[];}
+  createOscillator(){const node=super.createOscillator(),start=node.start.bind(node);node.start=t=>{this.ahead.push(t-this.currentTime);start(t);};return node;}
+  suspend(time){assert.ok(time>this.currentTime);assert.equal(this.pause,undefined);this.pauses.push(time);return new Promise(resolve=>{this.pause={time,resolve};});}
+  advance(){if(this.pause){const p=this.pause;delete this.pause;this.currentTime=p.time;this.state='suspended';p.resolve();}else{this.state='closed';this.finish(this.createBuffer(this.channels,this.length,this.sampleRate));}}
+  startRendering(){return new Promise(resolve=>{this.finish=resolve;queueMicrotask(()=>this.advance());});}
+  async resume(){assert.equal(this.state,'suspended');this.state='running';queueMicrotask(()=>this.advance());}
+ }
+ global.OfflineAudioContext=BatchedContext;
+ const full=expandSong(compose('Trance 160 BPM',{seed:39}),180,'full'),progress=[];
+ const wav=await renderWav(full,.65,true,p=>progress.push(p));
+ assert.ok(instance.pauses.length>1);assert.ok(Math.max(...instance.ahead)<4*240/full.bpm+.02);
+ assert.equal(progress[0],0);assert.equal(progress.at(-1),1);assert.ok(progress.every((p,i)=>!i||p>=progress[i-1]));
+ assert.equal(wav.size,44+Math.ceil((duration(full)+2)*44100)*4);
+ global.OfflineAudioContext=Context;
+});

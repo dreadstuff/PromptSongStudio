@@ -110,9 +110,27 @@ export class Player {
   setMix(song:Song,volume:number){this.volume=volume;if(this.song)this.song={...this.song,mix:song.mix,muted:song.muted};this.synth?.updateMix(song,volume);}
   stop(){this.token++;this.playing=false;if(this.timer)clearInterval(this.timer);this.timer=null;this.queue=[];const ctx=this.context;this.context=null;this.synth=null;if(ctx&&ctx.state!=='closed')void ctx.close().catch(()=>{});}
 }
-export async function renderWav(song:Song,volume=.65,tail=true){
+export async function renderWav(song:Song,volume=.65,tail=true,onProgress?:(fraction:number)=>void){
   const seconds=duration(song)+(tail?2:0);const ctx=new OfflineAudioContext(2,Math.ceil(seconds*44100),44100);const synth=new Synth(ctx,song,volume);
-  for(let step=0;step<song.bars*16;step++)synth.step(song,step,stepTime(song,step));
-  const buffer=await ctx.startRendering();return new Blob([encodeWav([buffer.getChannelData(0),buffer.getChannelData(1)],buffer.sampleRate)],{type:'audio/wav'});
+  const total=song.bars*16,chunk=64;let next=0;
+  const schedule=(end:number)=>{for(;next<Math.min(end,total);next++)synth.step(song,next,stepTime(song,next));};
+  onProgress?.(0);
+  let buffer:AudioBuffer;
+  if(total>chunk&&typeof ctx.suspend==='function'&&typeof ctx.resume==='function'){
+    // One continuous context preserves effects/tails, while bounding future audio nodes.
+    // Schedule each suspension before starting/resuming to avoid racing the render thread.
+    schedule(chunk);let pause:Promise<void>|null=ctx.suspend(stepTime(song,next));
+    const rendering=ctx.startRendering();
+    while(pause){
+      await Promise.race([pause,rendering.then(()=>{throw new Error('Audio rendering ended before its next section.');})]);
+      onProgress?.(Math.min(.99,ctx.currentTime/seconds));
+      schedule(next+chunk);
+      pause=next<total?ctx.suspend(stepTime(song,next)):null;
+      await ctx.resume();
+    }
+    buffer=await rendering;
+  }else{schedule(total);buffer=await ctx.startRendering();}
+  onProgress?.(1);
+  return new Blob([encodeWav([buffer.getChannelData(0),buffer.getChannelData(1)],buffer.sampleRate)],{type:'audio/wav'});
 }
 export function saveFile(blob:Blob,name:string){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}

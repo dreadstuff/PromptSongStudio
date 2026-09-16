@@ -64,3 +64,5 @@ Expansion clones and validates the accepted take. Its tempo, key, synth voices, 
 A new batch contains the original and the separately identified full song, keeping both within the six-track recent-batch cap. Previous comparisons remain in Recent. Save and JSON export are available for durable favorites; storage remains browser-local with the existing quota warning. All bars share the live playback/offline WAV path.
 
 The pre-expansion-button build is preserved at `backup/evolving-scores-demo09`, commit `fdfd2a184b44d89ff2bc9f62036280da49820b83`.
+
+Long WAV exports now schedule four bars at a time where offline audio suspension is supported. They keep one continuous audio context, preserving reverb and delay across boundaries, and report render progress. This bounds the number of future audio nodes instead of constructing the entire song's graph before rendering. Other browsers retain the original rendering path.
