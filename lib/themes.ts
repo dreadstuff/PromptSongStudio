@@ -1,0 +1,23 @@
+/** Ready-to-edit descriptions covering all eight supported musical styles. */
+export const THEMES = [
+  {id:'boss',name:'Dungeon boss fight',prompt:'A dungeon hero enters a boss fight. Upbeat and fast trance at 160 BPM in A dorian, driving drums, bold bass, and bright arpeggios.'},
+  {id:'dragon',name:'Dragon showdown',prompt:'A dragon battle above a ruined castle. Intense chiptune at 150 BPM in D minor, pounding retro drums and a fierce square melody.'},
+  {id:'neon',name:'Neon getaway',prompt:'A high-speed chase through a neon city. Urgent drum and bass at 174 BPM in F minor, rapid breakbeats and a deep sub bass.'},
+  {id:'forest',name:'Enchanted forest',prompt:'Exploring an enchanted forest full of glowing fireflies. Adventurous synthwave at 108 BPM in D dorian, bell melody and warm pads.'},
+  {id:'campfire',name:'Campfire save point',prompt:'Resting at a cozy campfire after a long quest. Calm lo-fi at 76 BPM in C major, soft drums, round bass and warm chords.'},
+  {id:'haunted',name:'Haunted corridors',prompt:'Sneaking through haunted corridors as something follows. Dark suspense with ambient music at 68 BPM in C minor, glass pads and sparse low notes.'},
+  {id:'victory',name:'Victory parade',prompt:'A joyful victory celebration fills the streets. Uplifting house music at 128 BPM in F major, bright plucks and a bouncy acid bass.'},
+  {id:'orbit',name:'Weightless orbit',prompt:'Drifting peacefully in orbit above a distant planet. Calm ambient music at 64 BPM in E major, glass pads, delicate bells and no drums.'},
+  {id:'rain',name:'Rainy café',prompt:'A quiet evening in a rainy café. Mellow lo-fi at 78 BPM in D minor, soft drums, warm keys, round bass and gentle swing.'},
+  {id:'arcade',name:'Arcade speedrun',prompt:'A playful arcade adventure racing toward the finish. Fast chiptune at 156 BPM in C major, bouncy square arpeggios and tight retro drums.'},
+  {id:'sunrise',name:'Sunrise festival',prompt:'A euphoric sunrise dance festival. Upbeat trance at 142 BPM in G major, soaring melody, bright arpeggios and driving drums.'},
+  {id:'rainstorm',name:'Rainstorm pursuit',prompt:'An urgent chase through a rainstorm. Fast drum and bass at 170 BPM in D minor, restless breakbeats and a heavy sub bass.'},
+  {id:'rooftop',name:'Rooftop romance',prompt:'Two lovers share a tender kiss on a rooftop under the stars. Romantic lo-fi at 82 BPM in F major, soft keys, gentle drums and warm pads.'},
+  {id:'farewell',name:'The last farewell',prompt:'A bittersweet farewell at an empty train station. Melancholic ambient music at 66 BPM in A minor, slow bell melody and warm pads without drums.'},
+  {id:'desert',name:'Desert caravan',prompt:'An adventurous caravan explores ancient desert ruins. Synthwave at 104 BPM in E dorian, round bass, warm pads and a wandering pluck melody.'},
+  {id:'heist',name:'Midnight heist',prompt:'A tense midnight heist beneath the city. Dark hip-hop at 94 BPM in G minor, deep 808 bass, sparse plucks and tight drums.'},
+  {id:'beach',name:'Beach party',prompt:'A carefree beach party beneath a golden sunset. Upbeat house music at 122 BPM in C major, bouncy bass and bright bell melody.'},
+  {id:'training',name:'Hero training montage',prompt:'A determined hero trains for the next challenge. Energetic hip-hop at 100 BPM in D dorian, powerful drums, deep sub bass and confident keys.'},
+  {id:'ice',name:'Crystal ice cavern',prompt:'Exploring a mysterious ice cavern filled with crystals. Ambient music at 88 BPM in B minor, glass pads, delicate bells and sparse percussion.'},
+  {id:'highway',name:'Afterhours highway',prompt:'A lonely drive along an empty highway after midnight. Nostalgic synthwave at 112 BPM in A minor, warm pads, round bass and a glowing pluck melody.'},
+] as const;
