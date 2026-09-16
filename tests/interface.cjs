@@ -16,7 +16,16 @@ const server=http.createServer((req,res)=>{
  try{
   browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+  page.setDefaultTimeout(30000);
+  console.log('Browser opened');
   page.on('pageerror',e=>errors.push(e.message));
+  page.on('console',message=>{if(message.text().startsWith('Audio export:'))console.log(message.text());});
+  await page.addInitScript(()=>{
+    const render=OfflineAudioContext.prototype.startRendering;
+    OfflineAudioContext.prototype.startRendering=function(){const start=performance.now();console.log('Audio export: native render started');return render.call(this).then(buffer=>{console.log('Audio export: native render finished in '+Math.round(performance.now()-start)+'ms');return buffer;});};
+    const click=HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click=function(){if(this.download)console.log('Audio export: download requested '+this.download);return click.call(this);};
+  });
   await page.goto('http://127.0.0.1:4185/');
   await page.getByRole('button',{name:/^Play track 1:/}).waitFor();
   assert.equal(await page.locator('#track-editor').count(),0);
@@ -79,6 +88,7 @@ const server=http.createServer((req,res)=>{
   await page.getByRole('combobox',{name:'Song length',exact:true}).click();
   await page.getByRole('option',{name:'32 bars',exact:true}).click();
   assert.equal(await page.locator('.score-section small').allTextContents().then(a=>a.reduce((n,x)=>n+parseInt(x),0)),32);
+  console.log('Base studio checks passed');
   // Expansion always targets the clicked take, and cancellation preserves the session.
   const source=await page.evaluate(()=>JSON.parse(localStorage.getItem('pss:session:v1')));
   const secondTitle=await cards.nth(1).locator('.take-details strong').innerText();
@@ -92,6 +102,7 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.getByRole('button',{name:'Create full song',exact:true}).isEnabled(),true);
   await page.getByRole('button',{name:'Cancel',exact:true}).click();
   assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('pss:session:v1'))),source);
+  console.log('Expansion dialog and cancellation passed');
   // Two-minute expansion keeps the original beside a separately selected full song.
   await page.getByRole('button',{name:'Expand track 1 into full song',exact:true}).click();
   await page.getByRole('button',{name:'Create full song',exact:true}).click();
@@ -105,6 +116,7 @@ const server=http.createServer((req,res)=>{
   await cards.nth(1).getByRole('button',{name:/^Play track/}).click();
   await cards.nth(1).getByRole('button',{name:/^Stop track/}).waitFor();
   await page.getByRole('button',{name:'Stop playback',exact:true}).click();
+  console.log('Two-minute expansion passed');
   // Generate three minutes from the same favorite, then restore/save/export the result.
   await page.getByRole('button',{name:'Expand track 1 into full song',exact:true}).click();
   await page.getByRole('combobox',{name:'Full song duration',exact:true}).click();
@@ -121,14 +133,16 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('pss:songs:v1')).some(s=>s.arrangement?.plan.targetSeconds===180));
   await page.setViewportSize({width:1440,height:1000});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  console.log('Three-minute expansion and reload passed');
   // Render native Web Audio to a WAV file, not just a mock audio graph.
   await page.getByRole('button',{name:'Export',exact:true}).click();
   const jsonPromise=page.waitForEvent('download');
   await page.getByRole('button',{name:'Download song JSON',exact:true}).click();
   const jsonDownload=await jsonPromise;assert.deepEqual(JSON.parse(fs.readFileSync(await jsonDownload.path(),'utf8')),expanded);
-  const downloadPromise=page.waitForEvent('download',{timeout:90000});
+  const downloadPromise=page.waitForEvent('download',{timeout:90000}).catch(async error=>{console.error('Export state:',await page.locator('body').innerText());throw error;});
+  console.log('Starting full-song WAV render');
   await page.getByRole('button',{name:'Download WAV',exact:true}).click();
-  const download=await downloadPromise;const wav=fs.readFileSync(await download.path());
+  const download=await downloadPromise;console.log('WAV download complete');const wav=fs.readFileSync(await download.path());
   assert.equal(wav.subarray(0,4).toString(),'RIFF');assert.equal(wav.readUInt16LE(22),2);assert.equal(wav.length,44+Math.ceil((expanded.bars*240/expanded.bpm+2)*44100)*4);
   assert.ok(wav.some((v,i)=>i>=44&&v!==0),'Native full-song render must contain audio');
   await page.locator('input[type=file]').setInputFiles(await jsonDownload.path());
